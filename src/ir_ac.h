@@ -28,3 +28,7 @@ uint8_t ir_ac_clamp_temp(int temp);
 // it off; otherwise turn on with the summer default (cool, 24 C, swing).
 struct AcCommand;
 AcCommand ir_ac_button_toggle();
+
+// Sends ~8 s of continuous IR frames so a phone selfie camera can verify the
+// LED emits from the full firmware. Wired to long-pressing Button A.
+void ir_ac_blast_test();

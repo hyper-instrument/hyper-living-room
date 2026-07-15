@@ -98,9 +98,8 @@ void fillToolsList(JsonObject result) {
     t2["name"] = "set_ac";
     t2["description"] =
         "Control the Daikin air conditioner over IR (like its remote). Set any "
-        "of: power on/off, mode, temperature, fan speed. Only the fields you "
-        "pass change. The Stick must have line-of-sight to the AC. Note: needs "
-        "mains power — keep the plug on (see set_plug_power).";
+        "of: power on/off, mode, temperature, fan speed, swing, streamer. Only "
+        "the fields you pass change. The Stick must have line-of-sight to the AC.";
     JsonObject s2 = t2["inputSchema"].to<JsonObject>();
     s2["type"] = "object";
     JsonObject p2 = s2["properties"].to<JsonObject>();
@@ -131,10 +130,10 @@ void fillToolsList(JsonObject result) {
     JsonObject t3 = tools.add<JsonObject>();
     t3["name"] = "set_plug_power";
     t3["description"] =
-        "Switch the Tapo P110M smart plug's mains power (hard on/off). The plug "
-        "is normally left ON purely as an energy meter — control the AC itself "
-        "with set_ac (IR). Only use this if the user explicitly wants to cut or "
-        "restore mains power. Effect within ~1s; confirm with get_status.";
+        "Switch the Tapo P110M smart plug on/off. The plug powers a separate "
+        "appliance — NOT the air conditioner (control the AC with set_ac over "
+        "IR). Only use this when the user explicitly asks to switch this plug. "
+        "Effect within ~1s; confirm with get_status.";
     JsonObject s3 = t3["inputSchema"].to<JsonObject>();
     s3["type"] = "object";
     JsonObject on = s3["properties"].to<JsonObject>()["on"].to<JsonObject>();
@@ -200,9 +199,10 @@ void handleToolCall(JsonVariant params, JsonObject result) {
         g_state.requestAcCommand(cmd);
         addTextContent(result,
             "IR command transmitted. NOTE: IR is one-way — the AC cannot acknowledge, "
-            "so this only means the signal was sent, not that the AC received it. To "
-            "verify: the AC beeps on receipt, and if it actually started/stopped, the "
-            "plug's power_w in get_status will change within ~1 minute.");
+            "so this only means the signal was sent, not that the AC received it. The "
+            "only physical confirmation is the AC's beep on receipt (a person must be "
+            "present to hear it). The smart plug is a separate device — its power "
+            "readings say nothing about the AC.");
         return;
     }
 
@@ -245,8 +245,8 @@ void handleMcpBody(AsyncWebServerRequest* request, const char* body) {
         result["instructions"] =
             "Indoor climate hub. Use get_status to read temperature/humidity and "
             "AC state; use set_ac to control the Daikin AC over IR (power/mode/"
-            "temp/fan/swing); set_plug_power only cuts mains (plug is an energy "
-            "meter, normally left on).";
+            "temp/fan/swing). set_plug_power switches a separate smart plug that "
+            "is unrelated to the AC.";
     } else if (strcmp(method, "tools/list") == 0) {
         fillToolsList(res["result"].to<JsonObject>());
     } else if (strcmp(method, "tools/call") == 0) {

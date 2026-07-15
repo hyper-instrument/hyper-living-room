@@ -93,6 +93,7 @@ void loop() {
     M5.update();
 
     if (M5.BtnA.wasClicked()) g_state.requestAcCommand(ir_ac_button_toggle());
+    if (M5.BtnA.wasHold()) ir_ac_blast_test(); // long-press: IR camera test
     if (M5.BtnB.wasClicked()) ui_next_screen();
 
     serviceTapo();
