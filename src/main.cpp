@@ -90,7 +90,7 @@ void setup() {
 void loop() {
     M5.update();
 
-    if (M5.BtnA.wasClicked()) g_state.requestPlugCommand(PLUG_CMD_TOGGLE);
+    if (M5.BtnA.wasClicked()) g_state.requestAcCommand(ir_ac_button_toggle());
     if (M5.BtnB.wasClicked()) ui_next_screen();
 
     serviceTapo();

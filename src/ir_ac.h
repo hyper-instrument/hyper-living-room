@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+#include "state.h"
+
 // Controls the Daikin AC over IR (protocol DAIKIN2, remote ARC478A33) using the
 // StickS3 IR transmitter on GPIO 46. IR is one-way; we track only what we last
 // commanded. All sending happens in the main loop (blocking), never the async
@@ -21,3 +23,8 @@ const char* ir_ac_fan_to_string(uint8_t fan);
 
 // Clamps to the AC's supported range (16..30 C practical subset).
 uint8_t ir_ac_clamp_temp(int temp);
+
+// Builds the command for the on-device button: if the AC is currently on, turn
+// it off; otherwise turn on with the summer default (cool, 24 C, swing).
+struct AcCommand;
+AcCommand ir_ac_button_toggle();

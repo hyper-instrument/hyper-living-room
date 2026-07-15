@@ -116,3 +116,22 @@ uint8_t ir_ac_clamp_temp(int temp) {
     if (temp > kMaxTemp) temp = kMaxTemp;
     return (uint8_t)temp;
 }
+
+AcCommand ir_ac_button_toggle() {
+    AcState ac = g_state.acState();
+    AcCommand cmd;
+    cmd.has_power = true;
+    if (ac.known && ac.power) {
+        cmd.power = false; // currently on -> turn off
+    } else {
+        // Summer default: cool, 24 C, vertical swing.
+        cmd.power = true;
+        cmd.has_mode = true;
+        cmd.mode = kDaikinCool;
+        cmd.has_temp = true;
+        cmd.temp = 24;
+        cmd.has_swing = true;
+        cmd.swing = true;
+    }
+    return cmd;
+}

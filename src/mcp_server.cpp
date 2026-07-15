@@ -131,9 +131,10 @@ void fillToolsList(JsonObject result) {
     JsonObject t3 = tools.add<JsonObject>();
     t3["name"] = "set_plug_power";
     t3["description"] =
-        "Switch the Tapo P110M smart plug that feeds the AC its mains power "
-        "(hard on/off). This is a power cut, not the AC's own on/off — for "
-        "normal operation use set_ac. Effect within ~1s; confirm with get_status.";
+        "Switch the Tapo P110M smart plug's mains power (hard on/off). The plug "
+        "is normally left ON purely as an energy meter — control the AC itself "
+        "with set_ac (IR). Only use this if the user explicitly wants to cut or "
+        "restore mains power. Effect within ~1s; confirm with get_status.";
     JsonObject s3 = t3["inputSchema"].to<JsonObject>();
     s3["type"] = "object";
     JsonObject on = s3["properties"].to<JsonObject>()["on"].to<JsonObject>();

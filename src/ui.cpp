@@ -4,6 +4,7 @@
 #include <WiFi.h>
 
 #include "app_config.h"
+#include "ir_ac.h"
 #include "state.h"
 
 namespace {
@@ -22,6 +23,26 @@ constexpr uint16_t COL_DIM = 0x8C71;     // gray
 constexpr uint16_t COL_ACCENT = 0x057F;  // blue
 constexpr uint16_t COL_ON = 0x2E8B;      // green
 constexpr uint16_t COL_WARN = 0xFB44;    // orange
+
+const char* modeCN(uint8_t mode) {
+    const char* e = ir_ac_mode_to_string(mode);
+    if (!strcmp(e, "cool")) return "制冷";
+    if (!strcmp(e, "heat")) return "制热";
+    if (!strcmp(e, "dry")) return "除湿";
+    if (!strcmp(e, "fan")) return "送风";
+    if (!strcmp(e, "auto")) return "自动";
+    return "?";
+}
+
+const char* fanCN(uint8_t fan) {
+    const char* e = ir_ac_fan_to_string(fan);
+    if (!strcmp(e, "auto")) return "自动风";
+    if (!strcmp(e, "quiet")) return "静音";
+    if (!strcmp(e, "low")) return "弱风";
+    if (!strcmp(e, "medium")) return "中风";
+    if (!strcmp(e, "high")) return "强风";
+    return "";
+}
 
 void drawTopBar(bool tapoReady) {
     g_canvas.setFont(&fonts::efontCN_12);
@@ -66,22 +87,35 @@ void drawMain() {
     g_canvas.drawString("°C", 14 + tw, 74);
     g_canvas.drawString("%", 154 + hw, 74);
 
-    // AC status line
+    // AC state (IR remote) — the real on/off of the air conditioner.
+    AcState ac = g_state.acState();
     g_canvas.setFont(&fonts::efontCN_16);
-    if (p.known) {
-        g_canvas.setTextColor(p.on ? COL_ON : COL_DIM);
-        String line = String("空调: ") + (p.on ? "开" : "关");
-        if (p.on && !isnan(p.powerW)) line += "  " + String(p.powerW, 0) + "W";
-        if (!isnan(p.todayKWh)) line += "  今日 " + String(p.todayKWh, 2) + "kWh";
-        g_canvas.drawString(line, 10, 96);
+    if (!ac.known) {
+        g_canvas.setTextColor(COL_DIM);
+        g_canvas.drawString("空调 --", 10, 90);
+    } else if (ac.power) {
+        g_canvas.setTextColor(COL_ON);
+        String line = String("空调 ") + modeCN(ac.mode) + " " + String(ac.temp) + "°C " + fanCN(ac.fan);
+        if (ac.swing) line += " 扫";
+        g_canvas.drawString(line, 10, 90);
     } else {
-        g_canvas.setTextColor(COL_WARN);
-        g_canvas.drawString("空调插座未连接", 10, 96);
+        g_canvas.setTextColor(COL_DIM);
+        g_canvas.drawString("空调 关", 10, 90);
     }
 
+    // Plug shown as an energy meter only (it stays on).
     g_canvas.setFont(&fonts::efontCN_12);
     g_canvas.setTextColor(COL_DIM);
-    g_canvas.drawString("A:开关空调  B:切换页面", 10, 120);
+    if (p.known) {
+        String pl = "插座 ";
+        pl += !isnan(p.powerW) ? String(p.powerW, 0) + "W" : "--";
+        if (!isnan(p.todayKWh)) pl += " · 今日" + String(p.todayKWh, 2) + "kWh";
+        g_canvas.drawString(pl, 10, 110);
+    } else {
+        g_canvas.drawString("插座 未连接", 10, 110);
+    }
+
+    g_canvas.drawString("A:开关空调(红外)  B:换页", 10, 124);
 }
 
 void drawEnergy() {
