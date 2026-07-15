@@ -29,6 +29,29 @@ A standalone hub (no Home Assistant server needed) running on an **M5Stack Stick
 
 If you leave `SENSOR_MAC` empty, the first LYWSDCGQ found is used; all discovered Xiaomi devices are printed on the serial monitor (`BLE: Xiaomi device found mac=...`) so you can pin the MAC afterwards.
 
+## MCP interface (for Claude / agents)
+
+The Stick also serves an **MCP** (Model Context Protocol) endpoint so an LLM agent can query and control it. It's the Streamable-HTTP transport (JSON-RPC 2.0) at:
+
+```
+http://m5stick.local/mcp      (or http://<stick-ip>/mcp)
+```
+
+Tools:
+
+| Tool | Args | Purpose |
+|---|---|---|
+| `get_status` | — | temperature, humidity, sensor battery, AC plug state, power (W), energy today (kWh), runtime |
+| `set_ac_power` | `{ "on": bool }` | turn the AC (Tapo P110M) on/off |
+
+Add it to Claude Code (use the IP; mDNS `.local` also works on macOS):
+
+```sh
+claude mcp add --transport http m5stick http://192.168.40.69/mcp
+```
+
+Then in a Claude session you can ask e.g. *"What's the room temperature and is the AC on?"* or *"Turn the AC off."* — it's no-auth and LAN-only, so keep it on a trusted network.
+
 ## Verify
 
 - Serial log shows: `WIFI: connected`, `BLE: Xiaomi device found ... (LYWSDCGQ)`, `TAPO: connected`.

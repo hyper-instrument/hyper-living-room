@@ -6,6 +6,7 @@
 #include <WiFi.h>
 
 #include "app_config.h"
+#include "mcp_server.h"
 #include "state.h"
 #include "web_ui_html.h"
 
@@ -61,6 +62,7 @@ void web_ui_start() {
     });
     g_server.on("/api/status", HTTP_GET, handleStatus);
     g_server.on("/api/plug", HTTP_POST, handlePlug);
+    mcp_register(g_server);
     g_server.onNotFound([](AsyncWebServerRequest* request) {
         request->send(404, "text/plain", "not found");
     });
