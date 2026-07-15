@@ -41,8 +41,9 @@ Tools:
 
 | Tool | Args | Purpose |
 |---|---|---|
-| `get_status` | — | temperature, humidity, sensor battery, AC plug state, power (W), energy today (kWh), runtime |
-| `set_ac_power` | `{ "on": bool }` | turn the AC (Tapo P110M) on/off |
+| `get_status` | — | temperature, humidity, sensor battery, plug mains state/power/energy, and last IR AC settings (`ac_ir_*`) |
+| `set_ac` | `power?`, `mode?` (auto/cool/heat/dry/fan), `temp?` (16–30), `fan?` (auto/quiet/low/medium/high), `swing?`, `streamer?` | control the Daikin AC over **IR** (like its remote) |
+| `set_plug_power` | `{ "on": bool }` | Tapo P110M **mains** power (hard cutoff + energy) |
 
 Add it to Claude Code (use the IP; mDNS `.local` also works on macOS):
 
@@ -51,6 +52,18 @@ claude mcp add --transport http m5stick http://192.168.40.69/mcp
 ```
 
 Then in a Claude session you can ask e.g. *"What's the room temperature and is the AC on?"* or *"Turn the AC off."* — it's no-auth and LAN-only, so keep it on a trusted network.
+
+## IR control of the Daikin AC
+
+The StickS3 has an IR transmitter (GPIO 46) that drives the real Daikin AC (unit **AJT22UNS-W**, remote **ARC478A33**, protocol **DAIKIN2** via IRremoteESP8266). `set_ac` / the web UI / `POST /api/ac` send power, mode, temperature, fan, vertical swing, and Streamer.
+
+Identifying the protocol (already done for ARC478A33 → DAIKIN2): the StickS3 IR **receiver** can't be decoded by this library (it needs the RMT peripheral), so identification is done by **transmitting** — the AC beeps for the matching variant:
+
+```sh
+pio run -e irtxtest -t upload && pio device monitor   # Button B cycles Daikin variants
+```
+
+`src/ir_capture.cpp` (env `ircapture`) is a receive-based attempt kept for reference; it floods with noise on this board.
 
 ## Agent skill
 

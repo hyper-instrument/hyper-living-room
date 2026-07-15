@@ -1,47 +1,50 @@
 ---
 name: home-assist
-description: 查询室内温湿度、控制空调（Tapo P110M 智能插座）。当用户问室内温度/湿度、房间冷热、空调开着没有，或让开/关空调（air conditioner / AC / 空调 / 温度 / 湿度 / temperature / humidity）时使用。
-version: 1.0.0
+description: 查询室内温湿度、用红外遥控控制大金空调（开关/温度/模式/风速/扫风），以及控制 Tapo P110M 智能插座的市电。当用户问室内温度/湿度、房间冷热、空调状态，或让开/关空调、调温度、调模式风速（air conditioner / AC / 空调 / 冷房 / 暖房 / 温度 / 湿度 / temperature / humidity）时使用。
+version: 2.0.0
 platforms: [linux, macos, windows]
 metadata:
   hermes:
-    tags: [home, climate, temperature, humidity, ac, air-conditioner, tapo, m5stick, 温度, 湿度, 空调]
+    tags: [home, climate, temperature, humidity, ac, air-conditioner, daikin, ir, tapo, m5stick, 温度, 湿度, 空调, 冷房, 暖房]
     related_skills: []
 ---
 
-# Home Assist — 室内环境与空调控制
+# Home Assist — 室内环境 + 大金空调（红外）+ 智能插座
 
-一个 M5StickS3 中控（hub）暴露的 MCP 接口。它读取小米 LYWSDCGQ 蓝牙温湿度计，并通过 TP-Link Tapo P110M 智能插座控制接在上面的**空调**。
+一个 M5StickS3 中控暴露的 MCP 接口。它：
+- 读取小米 LYWSDCGQ 蓝牙温湿度计；
+- 通过**红外**遥控真实的**大金空调**（型号 AJT22UNS-W，遥控器 ARC478A33，协议 DAIKIN2）——开关/温度/模式/风速/扫风/Streamer；
+- 通过 **Tapo P110M 智能插座**控制空调的**市电**（硬开关 + 电量统计）。
 
 ## 依赖
 
-需要名为 **`m5stick`** 的 MCP server 已连接（Streamable-HTTP）：
-
-```
-http://m5stick.local/mcp
-```
-
-- Claude Code：`claude mcp list` 应显示 `m5stick ... ✔ Connected`
-- Hermes：`hermes mcp test m5stick` 应显示 `✓ Connected`
-
-如果没连上，先确认 Stick 通电、和你在同一个 2.4GHz Wi-Fi 下，`.local` 无法解析时可临时换成它的 IP。
+需要名为 **`m5stick`** 的 MCP server 已连接：`http://m5stick.local/mcp`
+- Claude：`claude mcp list` → `m5stick ... ✔ Connected`
+- Hermes：`hermes mcp test m5stick` → `✓ Connected`
 
 ## 工具
 
 | 工具 | 参数 | 说明 |
 |---|---|---|
-| `get_status` | 无 | 返回 JSON：`temperature_c`、`humidity_pct`、`sensor_battery_pct`、`sensor_stale`、`ac_plug_connected`、`ac_on`、`power_w`、`today_kwh`、`today_runtime_min`、`wifi_rssi_dbm` |
-| `set_ac_power` | `{ "on": true \| false }` | true=开空调，false=关空调 |
+| `get_status` | 无 | 温湿度、传感器电量、插座市电状态/功率/用电，以及**最后一次发给空调的红外设置**（`ac_ir_power/mode/temp_c/fan/swing/streamer`）|
+| `set_ac` | `power?`(bool), `mode?`(auto/cool/heat/dry/fan), `temp?`(16–30), `fan?`(auto/quiet/low/medium/high), `swing?`(bool), `streamer?`(bool) | **红外遥控空调**，只改传入的字段。这是控制空调的主要方式 |
+| `set_plug_power` | `on`(bool) | Tapo 插座**市电**硬开关。这是断电，不是空调本身的开关——正常控制用 `set_ac` |
 
-## 常见用法
+## 重要行为约定（务必遵守）
 
-- **查环境**：用户问「室内多少度」「现在湿度多少」「空调开着吗」→ 调 `get_status`，用其中相关字段直接回答，不要念整段 JSON。
-- **开/关空调**：用户说「开空调」「太热了」→ 调 `set_ac_power {on:true}`；「关空调」「有点冷」→ `set_ac_power {on:false}`。
-- **确认结果**：`set_ac_power` 大约 1 秒后才生效。改完状态后，若用户需要确认，隔一两秒再调一次 `get_status` 看 `ac_on` 是否已变。
+- **「开空调 / 开机」= 制冷。** 现在是夏天，用户说「开空调」「开机」「有点热」时，调用
+  `set_ac` 传 **`power=true, mode=cool, temp=24, swing=true`**（默认 24°C + 上下扫风）。
+- **默认温度 24°C、默认开上下扫风**（`swing=true`）。用户没特别说温度时就用 24。
+- 空调有**记忆功能**：真实遥控器按「冷房」会恢复上次设置。但我们主动明确设成 制冷/24°C/扫风，不要依赖记忆。
+- **只调温度/模式/风速**时，用 `set_ac` 只传对应字段即可（例如「调到 26 度」→ `set_ac {temp:26}`）。
+- **区分两种「关」**：
+  - 「关空调」正常情况用 `set_ac {power:false}`（红外关机，室内机进入待机，可再用红外开）。
+  - 只有用户明确要「断电 / 拔电 / 彻底关掉插座」时才用 `set_plug_power {on:false}`（市电硬断）。
+- 红外是**单向**的：`get_status` 里的 `ac_ir_*` 是「最后一次发送的指令」，不是空调实测状态。发完指令可以这样回复用户，但不要声称已确认空调真的执行了。
+- 用户问冷热/湿度用 `get_status` 的 `temperature_c` / `humidity_pct` 直接回答，不要念整段 JSON。
 
 ## 注意
 
-- **数据新鲜度**：`sensor_stale` 为 `true` 表示温湿度已超过 5 分钟没更新（传感器可能离线或超出蓝牙范围），此时读数不可信，要如实告知。
-- **插座状态**：`ac_plug_connected` 为 `false` 表示 Stick 还没连上插座，此时无法控制空调，别假装成功。
-- **硬断电**：`set_ac_power` 是给空调整体断电/通电。空调能否在通电后自动恢复制冷，取决于它有没有「来电自动开机」功能——不确定就提醒用户。
-- 只读操作（`get_status`）可随时调用；`set_ac_power` 是真实物理动作，按用户意图执行即可，不用反复确认。
+- 需要 Stick 的红外能**对准空调**（有视线）。红外发射正常但角度/距离不对时空调不响应。
+- 红外控制需要空调有市电——如果之前用 `set_plug_power` 断了电，要先把插座打开。
+- `sensor_stale=true` 表示温湿度超过 5 分钟没更新，读数不可信，要如实说明。

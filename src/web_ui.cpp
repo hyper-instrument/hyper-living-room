@@ -6,6 +6,7 @@
 #include <WiFi.h>
 
 #include "app_config.h"
+#include "ir_ac.h"
 #include "mcp_server.h"
 #include "state.h"
 #include "web_ui_html.h"
@@ -35,6 +36,17 @@ void handleStatus(AsyncWebServerRequest* request) {
     else doc["todayKWh"] = nullptr;
     doc["todayRuntimeMin"] = p.todayRuntimeMin;
 
+    AcState ac = g_state.acState();
+    doc["acKnown"] = ac.known;
+    if (ac.known) {
+        doc["acOn"] = ac.power;
+        doc["acMode"] = ir_ac_mode_to_string(ac.mode);
+        doc["acTemp"] = ac.temp;
+        doc["acFan"] = ir_ac_fan_to_string(ac.fan);
+        doc["acSwing"] = ac.swing;
+        doc["acStreamer"] = ac.streamer;
+    }
+
     doc["rssi"] = WiFi.RSSI();
     doc["host"] = APP_HOSTNAME;
     doc["uptimeSec"] = millis() / 1000;
@@ -54,6 +66,43 @@ void handlePlug(AsyncWebServerRequest* request) {
     request->send(200, "application/json", "{\"ok\":true}");
 }
 
+// Controls the Daikin AC over IR. Any of: power, mode, temp, fan, swing, streamer.
+void handleAc(AsyncWebServerRequest* request) {
+    AcCommand cmd;
+    if (request->hasParam("power")) {
+        cmd.has_power = true;
+        cmd.power = request->getParam("power")->value().toInt() != 0;
+    }
+    if (request->hasParam("temp")) {
+        cmd.has_temp = true;
+        cmd.temp = ir_ac_clamp_temp(request->getParam("temp")->value().toInt());
+    }
+    if (request->hasParam("mode")) {
+        uint8_t m;
+        if (ir_ac_mode_from_string(request->getParam("mode")->value().c_str(), &m)) {
+            cmd.has_mode = true;
+            cmd.mode = m;
+        }
+    }
+    if (request->hasParam("fan")) {
+        uint8_t f;
+        if (ir_ac_fan_from_string(request->getParam("fan")->value().c_str(), &f)) {
+            cmd.has_fan = true;
+            cmd.fan = f;
+        }
+    }
+    if (request->hasParam("swing")) {
+        cmd.has_swing = true;
+        cmd.swing = request->getParam("swing")->value().toInt() != 0;
+    }
+    if (request->hasParam("streamer")) {
+        cmd.has_streamer = true;
+        cmd.streamer = request->getParam("streamer")->value().toInt() != 0;
+    }
+    g_state.requestAcCommand(cmd);
+    request->send(200, "application/json", "{\"ok\":true}");
+}
+
 } // namespace
 
 void web_ui_start() {
@@ -62,6 +111,7 @@ void web_ui_start() {
     });
     g_server.on("/api/status", HTTP_GET, handleStatus);
     g_server.on("/api/plug", HTTP_POST, handlePlug);
+    g_server.on("/api/ac", HTTP_POST, handleAc);
     mcp_register(g_server);
     g_server.onNotFound([](AsyncWebServerRequest* request) {
         request->send(404, "text/plain", "not found");

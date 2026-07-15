@@ -34,6 +34,19 @@ static const char WEB_UI_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
   }
   #acbtn.on { background: #0a84ff; }
   #acbtn:disabled { opacity: .5; }
+  .acbtns { display: flex; gap: 8px; margin-top: 12px; }
+  .acbtns button, .chip {
+    flex: 1; padding: 12px 6px; border: 0; border-radius: 10px; font-size: 15px;
+    font-weight: 600; color: #e8edf2; background: #2b3644;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .chip.sel { background: #0a84ff; color: #fff; }
+  .chiprow { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .chip { font-size: 13px; padding: 9px 4px; }
+  .tempctl { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 12px; }
+  .tempctl button { width: 48px; height: 48px; border: 0; border-radius: 50%; background: #2b3644; color: #fff; font-size: 24px; }
+  .tempval { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 78px; text-align: center; }
+  .tempval .u { font-size: 15px; color: #8b98a5; }
   #status { font-size: 12px; color: #5a6672; margin-top: 18px; }
   .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #5a6672; margin-right: 6px; }
   .dot.ok { background: #30d158; }
@@ -55,6 +68,27 @@ static const char WEB_UI_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
     </div>
     <div class="sub"><span id="kwh">--</span> kWh 今日 · 运行 <span id="runtime">--</span></div>
     <button id="acbtn" disabled>...</button>
+  </div>
+  <div class="card wide">
+    <div class="row">
+      <div class="label">空调（红外遥控）</div>
+      <div class="sub" id="acstate" style="margin-top:0">--</div>
+    </div>
+    <div class="acbtns">
+      <button id="acon" onclick="acOn()">开 (冷房)</button>
+      <button id="acoff" onclick="ac({power:0})">关</button>
+    </div>
+    <div class="tempctl">
+      <button onclick="acTemp(-1)">−</button>
+      <div class="tempval"><span id="actemp">24</span><span class="u">°C</span></div>
+      <button onclick="acTemp(1)">+</button>
+    </div>
+    <div class="chiprow" id="modes"></div>
+    <div class="chiprow" id="fans"></div>
+    <div class="chiprow">
+      <button class="chip" id="swingchip" onclick="acToggle('swing')">上下扫风</button>
+      <button class="chip" id="streamerchip" onclick="acToggle('streamer')">Streamer</button>
+    </div>
   </div>
 </div>
 <div id="status"><span class="dot" id="dot"></span><span id="statustext">连接中…</span></div>
@@ -93,6 +127,16 @@ async function poll() {
       $('acbtn').disabled = true;
       $('acbtn').textContent = '插座离线';
     }
+    if (s.acKnown) {
+      acTempVal = s.acTemp; $('actemp').textContent = s.acTemp;
+      $('acstate').textContent = (s.acOn ? '开' : '关') + ' · ' + s.acMode + ' · ' + s.acTemp + '°C · 风' + s.acFan + (s.acSwing ? ' · 扫风' : '') + (s.acStreamer ? ' · Streamer' : '');
+      MODES.forEach(([k]) => $('mode-' + k) && $('mode-' + k).classList.toggle('sel', s.acOn && s.acMode === k));
+      FANS.forEach(([k]) => $('fan-' + k) && $('fan-' + k).classList.toggle('sel', s.acFan === k));
+      $('swingchip').classList.toggle('sel', s.acSwing);
+      $('streamerchip').classList.toggle('sel', s.acStreamer);
+    } else {
+      $('acstate').textContent = '尚未发送过指令';
+    }
     $('dot').className = 'dot ok';
     $('statustext').textContent = (s.host || 'm5stick') + '.local · 信号 ' + s.rssi + ' dBm';
   } catch (e) {
@@ -111,6 +155,43 @@ $('acbtn').addEventListener('click', async () => {
   setTimeout(() => { busy = false; poll(); }, 2500);
 });
 
+// --- AC (IR) control ---
+const MODES = [['auto', '自动'], ['cool', '冷房'], ['heat', '暖房'], ['dry', '除湿'], ['fan', '送风']];
+const FANS = [['auto', '自动'], ['quiet', '静音'], ['low', '弱'], ['medium', '中'], ['high', '强']];
+let acTempVal = 24;
+
+function buildChips() {
+  const mk = (parent, list, pfx, onclick) => {
+    const el = $(parent); el.innerHTML = '';
+    list.forEach(([k, label]) => {
+      const b = document.createElement('button');
+      b.className = 'chip'; b.id = pfx + k; b.textContent = label;
+      b.onclick = () => onclick(k);
+      el.appendChild(b);
+    });
+  };
+  mk('modes', MODES, 'mode-', k => ac({ power: 1, mode: k }));
+  mk('fans', FANS, 'fan-', k => ac({ fan: k }));
+}
+
+function ac(params) {
+  const q = Object.entries(params).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+  return fetch('/api/ac?' + q, { method: 'POST' }).catch(() => {}).then(() => setTimeout(poll, 700));
+}
+// Summer default: turn on in COOL at the chosen temp with vertical swing.
+function acOn() { ac({ power: 1, mode: 'cool', temp: acTempVal, swing: 1 }); }
+function acTemp(d) {
+  acTempVal = Math.max(16, Math.min(30, acTempVal + d));
+  $('actemp').textContent = acTempVal;
+  ac({ temp: acTempVal });
+}
+let acToggleState = { swing: false, streamer: false };
+function acToggle(which) {
+  acToggleState[which] = !$( which === 'swing' ? 'swingchip' : 'streamerchip').classList.contains('sel');
+  ac({ [which]: acToggleState[which] ? 1 : 0 });
+}
+
+buildChips();
 poll();
 setInterval(() => { if (!busy) poll(); }, 5000);
 </script>

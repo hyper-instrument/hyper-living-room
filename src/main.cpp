@@ -4,6 +4,7 @@
 
 #include "app_config.h"
 #include "ble_sensor.h"
+#include "ir_ac.h"
 #include "state.h"
 #include "tapo_client.h"
 #include "ui.h"
@@ -71,6 +72,10 @@ void setup() {
     g_state.begin();
     ui_init();
 
+    // The IR transmitter is on the external power rail; enable it.
+    M5.Power.setExtOutput(true, m5::ext_none);
+    ir_ac_init();
+
     connectWifi();
     configTime(8 * 3600, 0, "ntp.aliyun.com", "pool.ntp.org");
     if (MDNS.begin(APP_HOSTNAME)) {
@@ -89,6 +94,7 @@ void loop() {
     if (M5.BtnB.wasClicked()) ui_next_screen();
 
     serviceTapo();
+    ir_ac_service();
 
     if (millis() - g_lastDraw >= 1000) {
         g_lastDraw = millis();

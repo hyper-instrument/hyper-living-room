@@ -31,6 +31,38 @@ enum PlugCommand : int {
     PLUG_CMD_TOGGLE = 2,
 };
 
+// A change to the Daikin AC sent over IR. Only the has_* fields are applied,
+// so callers can change just temperature, just mode, etc. Consumed by the main
+// loop (IR send is blocking, must not run in the async task).
+struct AcCommand {
+    bool pending = false;
+    bool has_power = false;
+    bool power = false;
+    bool has_mode = false;
+    uint8_t mode = 0; // kDaikin* mode value
+    bool has_temp = false;
+    uint8_t temp = 26;
+    bool has_fan = false;
+    uint8_t fan = 0; // kDaikinFan* value
+    bool has_swing = false;
+    bool swing = false; // vertical swing (風向上下)
+    bool has_streamer = false;
+    bool streamer = false; // Daikin Streamer / purify (ストリーマ)
+};
+
+// Last AC state we commanded over IR. IR is one-way: this is what we last told
+// the AC, not a sensed value.
+struct AcState {
+    bool known = false; // at least one IR command sent
+    bool power = false;
+    uint8_t mode = 3;  // kDaikinCool
+    uint8_t temp = 26;
+    uint8_t fan = 10;  // kDaikinFanAuto
+    bool swing = false;
+    bool streamer = false;
+    uint32_t updatedMs = 0;
+};
+
 // Shared between the main loop, the NimBLE host task (BLE callbacks) and the
 // async_tcp task (web server handlers). All access goes through the mutex.
 class AppState {
@@ -77,6 +109,34 @@ public:
         return cmd;
     }
 
+    void requestAcCommand(const AcCommand& cmd) {
+        lock();
+        acCmd_ = cmd;
+        acCmd_.pending = true;
+        unlock();
+    }
+
+    AcCommand takeAcCommand() {
+        lock();
+        AcCommand cmd = acCmd_;
+        acCmd_ = AcCommand{};
+        unlock();
+        return cmd;
+    }
+
+    AcState acState() const {
+        lock();
+        AcState s = acState_;
+        unlock();
+        return s;
+    }
+
+    void setAcState(const AcState& s) {
+        lock();
+        acState_ = s;
+        unlock();
+    }
+
 private:
     void lock() const { xSemaphoreTake(mtx_, portMAX_DELAY); }
     void unlock() const { xSemaphoreGive(mtx_); }
@@ -85,6 +145,8 @@ private:
     SensorData sensor_;
     PlugData plug_;
     PlugCommand pending_ = PLUG_CMD_NONE;
+    AcCommand acCmd_;
+    AcState acState_;
 };
 
 extern AppState g_state;
