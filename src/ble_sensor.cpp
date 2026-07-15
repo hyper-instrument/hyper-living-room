@@ -20,6 +20,7 @@ constexpr uint16_t kFcHasCapability = 0x0020;
 constexpr uint16_t kFcHasObject = 0x0040;
 
 std::set<std::string> g_seenMacs; // for one-time discovery logging
+volatile bool g_scanPaused = false;
 
 String formatMac(const uint8_t* macLsbFirst) {
     char buf[18];
@@ -124,8 +125,9 @@ class ScanCallbacks : public NimBLEScanCallbacks {
     }
 
     // Restart indefinitely; finite scans clear the duplicate cache so we keep
-    // receiving fresh readings.
+    // receiving fresh readings. Skip the restart while paused (IR sending).
     void onScanEnd(const NimBLEScanResults&, int) override {
+        if (g_scanPaused) return;
         NimBLEDevice::getScan()->start(kScanDurationMs, false, true);
     }
 };
@@ -145,4 +147,16 @@ void ble_sensor_start() {
     scan->setWindow(60);
     scan->start(kScanDurationMs, false, true);
     Serial.println("BLE: passive scan started");
+}
+
+void ble_sensor_pause() {
+    g_scanPaused = true;
+    NimBLEScan* scan = NimBLEDevice::getScan();
+    if (scan && scan->isScanning()) scan->stop();
+}
+
+void ble_sensor_resume() {
+    g_scanPaused = false;
+    NimBLEScan* scan = NimBLEDevice::getScan();
+    if (scan && !scan->isScanning()) scan->start(kScanDurationMs, false, true);
 }

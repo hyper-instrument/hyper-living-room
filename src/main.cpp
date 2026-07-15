@@ -25,6 +25,8 @@ void connectWifi() {
     WiFi.mode(WIFI_STA);
     WiFi.setHostname(APP_HOSTNAME);
     WiFi.setAutoReconnect(true);
+    // NB: do NOT disable WiFi modem-sleep here — BLE coexistence on the ESP32-S3
+    // requires it, and turning it off aborts in coex_enable (boot loop).
     WiFi.begin(WIFI_SSID, WIFI_PASS);
 
     uint32_t start = millis();

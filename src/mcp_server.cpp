@@ -239,8 +239,10 @@ void handleMcpBody(AsyncWebServerRequest* request, const char* body) {
         info["name"] = kServerName;
         info["version"] = kServerVersion;
         result["instructions"] =
-            "Indoor climate hub. Use get_status to read temperature/humidity "
-            "and AC state; use set_ac_power to switch the air conditioner.";
+            "Indoor climate hub. Use get_status to read temperature/humidity and "
+            "AC state; use set_ac to control the Daikin AC over IR (power/mode/"
+            "temp/fan/swing); set_plug_power only cuts mains (plug is an energy "
+            "meter, normally left on).";
     } else if (strcmp(method, "tools/list") == 0) {
         fillToolsList(res["result"].to<JsonObject>());
     } else if (strcmp(method, "tools/call") == 0) {

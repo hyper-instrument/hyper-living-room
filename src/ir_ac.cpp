@@ -4,6 +4,7 @@
 #include <IRsend.h>
 #include <ir_Daikin.h>
 
+#include "ble_sensor.h"
 #include "state.h"
 
 namespace {
@@ -20,6 +21,9 @@ bool g_streamer = false;
 // realistically runs 16..30).
 constexpr int kMinTemp = 16;
 constexpr int kMaxTemp = 30;
+
+// Extra repeats of each frame (total sends = 1 + this) to survive WiFi jitter.
+constexpr uint16_t kIrSendRepeats = 4;
 } // namespace
 
 void ir_ac_init() {
@@ -49,7 +53,12 @@ void ir_ac_service() {
     }
     if (c.has_power) g_ac.setPower(c.power);
 
-    g_ac.send();
+    // The IR carrier is bit-banged; BLE scan interrupts corrupt the timing, so
+    // quiet BLE and send the frame a few times for reliability with WiFi up.
+    ble_sensor_pause();
+    delay(20);
+    g_ac.send(kIrSendRepeats);
+    ble_sensor_resume();
 
     AcState s;
     s.known = true;
