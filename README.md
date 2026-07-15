@@ -52,6 +52,17 @@ claude mcp add --transport http m5stick http://192.168.40.69/mcp
 
 Then in a Claude session you can ask e.g. *"What's the room temperature and is the AC on?"* or *"Turn the AC off."* — it's no-auth and LAN-only, so keep it on a trusted network.
 
+## Agent skill
+
+`skills/home-assist/SKILL.md` wraps the MCP tools with device context and common workflows (when to read climate, how to switch the AC, staleness/safety notes) so an agent uses them correctly. It's format-compatible with both Claude Code and Hermes skills — install by copying the folder:
+
+```sh
+cp -r skills/home-assist ~/.claude/skills/     # Claude Code
+cp -r skills/home-assist ~/.hermes/skills/     # Hermes
+```
+
+The skill depends on the `m5stick` MCP server (above) being connected.
+
 ## Verify
 
 - Serial log shows: `WIFI: connected`, `BLE: Xiaomi device found ... (LYWSDCGQ)`, `TAPO: connected`.
