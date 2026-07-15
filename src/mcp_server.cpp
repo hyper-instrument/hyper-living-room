@@ -198,7 +198,11 @@ void handleToolCall(JsonVariant params, JsonObject result) {
             return;
         }
         g_state.requestAcCommand(cmd);
-        addTextContent(result, "AC IR command sent. Aim the Stick at the AC; call get_status to see the last-sent settings.");
+        addTextContent(result,
+            "IR command transmitted. NOTE: IR is one-way — the AC cannot acknowledge, "
+            "so this only means the signal was sent, not that the AC received it. To "
+            "verify: the AC beeps on receipt, and if it actually started/stopped, the "
+            "plug's power_w in get_status will change within ~1 minute.");
         return;
     }
 

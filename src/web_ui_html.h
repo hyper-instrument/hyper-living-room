@@ -129,7 +129,7 @@ async function poll() {
     }
     if (s.acKnown) {
       acTempVal = s.acTemp; $('actemp').textContent = s.acTemp;
-      $('acstate').textContent = (s.acOn ? '开' : '关') + ' · ' + s.acMode + ' · ' + s.acTemp + '°C · 风' + s.acFan + (s.acSwing ? ' · 扫风' : '') + (s.acStreamer ? ' · Streamer' : '');
+      $('acstate').textContent = '最后发送: ' + (s.acOn ? '开' : '关') + ' · ' + s.acMode + ' · ' + s.acTemp + '°C · 风' + s.acFan + (s.acSwing ? ' · 扫风' : '') + (s.acStreamer ? ' · Streamer' : '');
       MODES.forEach(([k]) => $('mode-' + k) && $('mode-' + k).classList.toggle('sel', s.acOn && s.acMode === k));
       FANS.forEach(([k]) => $('fan-' + k) && $('fan-' + k).classList.toggle('sel', s.acFan === k));
       $('swingchip').classList.toggle('sel', s.acSwing);
