@@ -14,6 +14,11 @@ ENV_KEYS = [
     "TAPO_PASS",
     "SENSOR_MAC",
     "APP_HOSTNAME",
+    "WG_PRIVATE_KEY",
+    "WG_LOCAL_IP",
+    "WG_PEER_PUBLIC_KEY",
+    "WG_ENDPOINT",
+    "WG_PORT",
 ]
 
 env_path = os.path.join(env["PROJECT_DIR"], ".env")

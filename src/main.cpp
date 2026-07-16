@@ -9,6 +9,7 @@
 #include "tapo_client.h"
 #include "ui.h"
 #include "web_ui.h"
+#include "wg_tunnel.h"
 
 AppState g_state;
 
@@ -101,6 +102,7 @@ void loop() {
 
     serviceTapo();
     ir_ac_service();
+    wg_tunnel_service();
 
     if (millis() - g_lastDraw >= 1000) {
         g_lastDraw = millis();
