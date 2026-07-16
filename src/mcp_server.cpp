@@ -61,7 +61,6 @@ String buildStatusText() {
         doc["ac_ir_temp_c"] = ac.temp;
         doc["ac_ir_fan"] = ir_ac_fan_to_string(ac.fan);
         doc["ac_ir_swing"] = ac.swing;
-        doc["ac_ir_streamer"] = ac.streamer;
     }
 
     doc["wifi_rssi_dbm"] = WiFi.RSSI();
@@ -97,9 +96,11 @@ void fillToolsList(JsonObject result) {
     JsonObject t2 = tools.add<JsonObject>();
     t2["name"] = "set_ac";
     t2["description"] =
-        "Control the Daikin air conditioner over IR (like its remote). Set any "
-        "of: power on/off, mode, temperature, fan speed, swing, streamer. Only "
-        "the fields you pass change. The Stick must have line-of-sight to the AC.";
+        "Control the Daikin air conditioner over IR (protocol DAIKIN152, like "
+        "its remote). Set any of: power on/off, mode, temperature, fan speed, "
+        "vertical swing. Only the fields you pass change. The Stick's IR LED is "
+        "weak: it needs a clear line of sight and short distance to the AC — if "
+        "the AC doesn't react (no beep), distance/aiming is the first suspect.";
     JsonObject s2 = t2["inputSchema"].to<JsonObject>();
     s2["type"] = "object";
     JsonObject p2 = s2["properties"].to<JsonObject>();
@@ -122,9 +123,6 @@ void fillToolsList(JsonObject result) {
     JsonObject acSwing = p2["swing"].to<JsonObject>();
     acSwing["type"] = "boolean";
     acSwing["description"] = "vertical swing (up/down airflow) on/off";
-    JsonObject acStreamer = p2["streamer"].to<JsonObject>();
-    acStreamer["type"] = "boolean";
-    acStreamer["description"] = "Daikin Streamer air purification on/off";
 
     // Tapo smart-plug mains power (hard cutoff + energy metering).
     JsonObject t3 = tools.add<JsonObject>();
@@ -188,21 +186,21 @@ void handleToolCall(JsonVariant params, JsonObject result) {
             cmd.has_fan = true; cmd.fan = f;
         }
         if (!a["swing"].isNull()) { cmd.has_swing = true; cmd.swing = a["swing"].as<bool>(); }
-        if (!a["streamer"].isNull()) { cmd.has_streamer = true; cmd.streamer = a["streamer"].as<bool>(); }
 
         if (!cmd.has_power && !cmd.has_temp && !cmd.has_mode && !cmd.has_fan &&
-            !cmd.has_swing && !cmd.has_streamer) {
+            !cmd.has_swing) {
             result["isError"] = true;
-            addTextContent(result, "Nothing to set. Pass at least one of: power, mode, temp, fan, swing, streamer.");
+            addTextContent(result, "Nothing to set. Pass at least one of: power, mode, temp, fan, swing.");
             return;
         }
         g_state.requestAcCommand(cmd);
         addTextContent(result,
             "IR command transmitted. NOTE: IR is one-way — the AC cannot acknowledge, "
             "so this only means the signal was sent, not that the AC received it. The "
-            "only physical confirmation is the AC's beep on receipt (a person must be "
-            "present to hear it). The smart plug is a separate device — its power "
-            "readings say nothing about the AC.");
+            "only physical confirmation is the AC's beep on receipt. If it didn't "
+            "beep, the usual cause is distance/aiming — the Stick's IR is weak and "
+            "must face the AC from nearby. The smart plug is a separate device; its "
+            "power readings say nothing about the AC.");
         return;
     }
 

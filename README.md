@@ -42,7 +42,7 @@ Tools:
 | Tool | Args | Purpose |
 |---|---|---|
 | `get_status` | — | temperature, humidity, sensor battery, plug mains state/power/energy, and last IR AC settings (`ac_ir_*`) |
-| `set_ac` | `power?`, `mode?` (auto/cool/heat/dry/fan), `temp?` (16–30), `fan?` (auto/quiet/low/medium/high), `swing?`, `streamer?` | control the Daikin AC over **IR** (like its remote) |
+| `set_ac` | `power?`, `mode?` (auto/cool/heat/dry/fan), `temp?` (16–30), `fan?` (auto/quiet/low/medium/high), `swing?` | control the Daikin AC over **IR** (like its remote) |
 | `set_plug_power` | `{ "on": bool }` | Tapo P110M **mains** power (hard cutoff + energy) |
 
 Add it to Claude Code (use the IP; mDNS `.local` also works on macOS):
@@ -55,9 +55,9 @@ Then in a Claude session you can ask e.g. *"What's the room temperature and is t
 
 ## IR control of the Daikin AC
 
-The StickS3 has an IR transmitter (GPIO 46) that drives the real Daikin AC (unit **AJT22UNS-W**, remote **ARC478A33**, protocol **DAIKIN2** via IRremoteESP8266). `set_ac` / the web UI / `POST /api/ac` send power, mode, temperature, fan, vertical swing, and Streamer.
+The StickS3 has an IR transmitter (GPIO 46) that drives the real Daikin AC (unit **AJT22UNS-W**, remote **ARC478A33**, protocol **DAIKIN152** via IRremoteESP8266's `IRac`). `set_ac` / the web UI / `POST /api/ac` send power, mode, temperature, fan, and vertical swing. The IR LED is weak — the Stick needs a short, unobstructed line of sight to the AC (1–2 m works; this is the first thing to check when the AC doesn't beep).
 
-Identifying the protocol (already done for ARC478A33 → DAIKIN2): the StickS3 IR **receiver** can't be decoded by this library (it needs the RMT peripheral), so identification is done by **transmitting** — the AC beeps for the matching variant:
+Identifying the protocol (already done for ARC478A33 → **DAIKIN152**): the StickS3 IR **receiver** can't be decoded by this library (it needs the RMT peripheral), so identification is done by **transmitting** — the AC beeps for the matching variant. Note the legacy RMT TX driver produced no light on this board; bit-banged TX via IRremoteESP8266 is what works:
 
 ```sh
 pio run -e irtxtest -t upload && pio device monitor   # Button B cycles Daikin variants

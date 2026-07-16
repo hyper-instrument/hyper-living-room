@@ -44,7 +44,6 @@ void handleStatus(AsyncWebServerRequest* request) {
         doc["acTemp"] = ac.temp;
         doc["acFan"] = ir_ac_fan_to_string(ac.fan);
         doc["acSwing"] = ac.swing;
-        doc["acStreamer"] = ac.streamer;
     }
 
     doc["rssi"] = WiFi.RSSI();
@@ -94,10 +93,6 @@ void handleAc(AsyncWebServerRequest* request) {
     if (request->hasParam("swing")) {
         cmd.has_swing = true;
         cmd.swing = request->getParam("swing")->value().toInt() != 0;
-    }
-    if (request->hasParam("streamer")) {
-        cmd.has_streamer = true;
-        cmd.streamer = request->getParam("streamer")->value().toInt() != 0;
     }
     g_state.requestAcCommand(cmd);
     request->send(200, "application/json", "{\"ok\":true}");

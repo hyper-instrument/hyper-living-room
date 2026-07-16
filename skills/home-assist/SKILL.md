@@ -1,7 +1,7 @@
 ---
 name: home-assist
 description: 查询室内温湿度、用红外遥控控制大金空调（开关/温度/模式/风速/扫风），以及控制 Tapo P110M 智能插座的市电。当用户问室内温度/湿度、房间冷热、空调状态，或让开/关空调、调温度、调模式风速（air conditioner / AC / 空调 / 冷房 / 暖房 / 温度 / 湿度 / temperature / humidity）时使用。
-version: 2.0.0
+version: 2.2.0
 platforms: [linux, macos, windows]
 metadata:
   hermes:
@@ -13,7 +13,7 @@ metadata:
 
 一个 M5StickS3 中控暴露的 MCP 接口。它：
 - 读取小米 LYWSDCGQ 蓝牙温湿度计；
-- 通过**红外**遥控真实的**大金空调**（型号 AJT22UNS-W，遥控器 ARC478A33，协议 DAIKIN2）——开关/温度/模式/风速/扫风/Streamer；
+- 通过**红外**遥控真实的**大金空调**（型号 AJT22UNS-W，遥控器 ARC478A33，协议 **DAIKIN152**）——开关/温度/模式/风速/扫风；
 - 读取/控制一个 **Tapo P110M 智能插座**（通断电 + 电量统计）。**插座与空调是独立设备**，插座上插的不是空调。
 
 ## 依赖
@@ -27,7 +27,7 @@ metadata:
 | 工具 | 参数 | 说明 |
 |---|---|---|
 | `get_status` | 无 | 温湿度、传感器电量、插座市电状态/功率/用电，以及**最后一次发给空调的红外设置**（`ac_ir_power/mode/temp_c/fan/swing/streamer`）|
-| `set_ac` | `power?`(bool), `mode?`(auto/cool/heat/dry/fan), `temp?`(16–30), `fan?`(auto/quiet/low/medium/high), `swing?`(bool), `streamer?`(bool) | **红外遥控空调**，只改传入的字段。这是控制空调的主要方式 |
+| `set_ac` | `power?`(bool), `mode?`(auto/cool/heat/dry/fan), `temp?`(16–30), `fan?`(auto/quiet/low/medium/high), `swing?`(bool) | **红外遥控空调**，只改传入的字段。这是控制空调的主要方式 |
 | `set_plug_power` | `on`(bool) | Tapo 插座通断电（插座上是独立电器，**不是空调**）。仅在用户明确要求开关这个插座时使用 |
 
 ## 重要行为约定（务必遵守）
@@ -44,5 +44,6 @@ metadata:
 
 ## 注意
 
-- 需要 Stick 的红外能**对准空调**（有视线）。红外发射正常但角度/距离不对时空调不响应。
+- **红外距离是最常见的故障原因**：Stick 的红外 LED 功率比原装遥控器弱得多，需要近距离（1–2 米内）、正对空调室内机接收窗、无遮挡。用户说「没反应」时，第一建议是把 Stick 移近、对准空调，而不是怀疑系统故障。
 - `sensor_stale=true` 表示温湿度超过 5 分钟没更新，读数不可信，要如实说明。
+- `get_status` 里 `ac_ir_known=false` 表示本次开机后还没发过任何红外指令。

@@ -86,8 +86,7 @@ static const char WEB_UI_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
     <div class="chiprow" id="modes"></div>
     <div class="chiprow" id="fans"></div>
     <div class="chiprow">
-      <button class="chip" id="swingchip" onclick="acToggle('swing')">上下扫风</button>
-      <button class="chip" id="streamerchip" onclick="acToggle('streamer')">Streamer</button>
+      <button class="chip" id="swingchip" onclick="acToggleSwing()">上下扫风</button>
     </div>
   </div>
 </div>
@@ -129,11 +128,10 @@ async function poll() {
     }
     if (s.acKnown) {
       acTempVal = s.acTemp; $('actemp').textContent = s.acTemp;
-      $('acstate').textContent = '最后发送: ' + (s.acOn ? '开' : '关') + ' · ' + s.acMode + ' · ' + s.acTemp + '°C · 风' + s.acFan + (s.acSwing ? ' · 扫风' : '') + (s.acStreamer ? ' · Streamer' : '');
+      $('acstate').textContent = '最后发送: ' + (s.acOn ? '开' : '关') + ' · ' + s.acMode + ' · ' + s.acTemp + '°C · 风' + s.acFan + (s.acSwing ? ' · 扫风' : '');
       MODES.forEach(([k]) => $('mode-' + k) && $('mode-' + k).classList.toggle('sel', s.acOn && s.acMode === k));
       FANS.forEach(([k]) => $('fan-' + k) && $('fan-' + k).classList.toggle('sel', s.acFan === k));
       $('swingchip').classList.toggle('sel', s.acSwing);
-      $('streamerchip').classList.toggle('sel', s.acStreamer);
     } else {
       $('acstate').textContent = '尚未发送过指令';
     }
@@ -185,10 +183,8 @@ function acTemp(d) {
   $('actemp').textContent = acTempVal;
   ac({ temp: acTempVal });
 }
-let acToggleState = { swing: false, streamer: false };
-function acToggle(which) {
-  acToggleState[which] = !$( which === 'swing' ? 'swingchip' : 'streamerchip').classList.contains('sel');
-  ac({ [which]: acToggleState[which] ? 1 : 0 });
+function acToggleSwing() {
+  ac({ swing: $('swingchip').classList.contains('sel') ? 0 : 1 });
 }
 
 buildChips();

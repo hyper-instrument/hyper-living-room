@@ -74,8 +74,11 @@ void setup() {
     g_state.begin();
     ui_init();
 
-    // The IR transmitter is on the external power rail; enable it.
+    // The IR transmitter is on the external power rail; enable it. The speaker
+    // amp is disabled: M5 notes it interferes with the IR circuitry, and the
+    // firmware that verifiably reached the AC had it off.
     M5.Power.setExtOutput(true, m5::ext_none);
+    M5.Speaker.end();
     ir_ac_init();
 
     connectWifi();

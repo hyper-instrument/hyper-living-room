@@ -1,61 +1,46 @@
-// Standalone IR TX identifier (env:irtxtest only — excluded from the main build).
-// The StickS3 IR receiver can't be decoded by this library (needs RMT), so we
-// identify the AC's protocol by transmitting: cycle through the Daikin variants
-// sending a distinctive command (power ON, COOL, 30C). The AC beeps / turns on
-// for the matching protocol; read the name shown on the Stick screen.
+// Standalone IR bisect tool (env:irtxtest only — excluded from the main build).
+// Sends the EXACT command that made the AC respond (DAIKIN152, power ON, COOL,
+// 30C, fan auto, no swing) on auto-repeat — but WITH WiFi connected, to test
+// whether an active WiFi association breaks bit-banged IR on this board.
 //
-//   pio run -e irtxtest -t upload && pio device monitor
+//   pio run -e irtxtest -t upload
 //
-//   Button B = send next variant   Button A = resend current variant
+//   Auto-repeats every 450 ms. Button A = force resend.
+//   Screen shows WiFi state so the variable under test is visible.
 
 #include <M5Unified.h>
+#include <WiFi.h>
 #include <IRremoteESP8266.h>
 #include <IRac.h>
-#include <IRutils.h>
+
+#include "app_config.h"
 
 namespace {
-constexpr uint16_t kIrLed = 46; // StickS3 IR transmitter
-
+constexpr uint16_t kIrLed = 46;
 IRac irac(kIrLed);
 
-struct Candidate {
-    decode_type_t proto;
-    const char* name;
-};
-
-const Candidate kCandidates[] = {
-    {DAIKIN, "DAIKIN"},       {DAIKIN2, "DAIKIN2"},   {DAIKIN216, "DAIKIN216"},
-    {DAIKIN160, "DAIKIN160"}, {DAIKIN176, "DAIKIN176"}, {DAIKIN128, "DAIKIN128"},
-    {DAIKIN152, "DAIKIN152"}, {DAIKIN64, "DAIKIN64"}, {DAIKIN200, "DAIKIN200"},
-    {DAIKIN312, "DAIKIN312"},
-};
-const size_t kNum = sizeof(kCandidates) / sizeof(kCandidates[0]);
-size_t idx = 0;
-
-void drawScreen() {
-    const Candidate& c = kCandidates[idx];
-    M5.Display.fillScreen(TFT_BLACK);
-    M5.Display.setCursor(6, 8);
-    M5.Display.setTextSize(2);
-    M5.Display.printf("%u/%u\n", (unsigned)(idx + 1), (unsigned)kNum);
-    M5.Display.setTextSize(3);
-    M5.Display.setCursor(6, 44);
-    M5.Display.println(c.name);
-    M5.Display.setTextSize(2);
-    M5.Display.setCursor(6, 100);
-    M5.Display.print("ON COOL 30");
-}
-
-void sendCurrent() {
-    const Candidate& c = kCandidates[idx];
-    Serial.printf("[%u/%u] %s -> power ON, COOL, 30C\n",
-                  (unsigned)(idx + 1), (unsigned)kNum, c.name);
-    irac.sendAc(c.proto, -1, /*power=*/true, stdAc::opmode_t::kCool, /*degrees=*/30.0f,
-                /*celsius=*/true,
-                stdAc::fanspeed_t::kAuto, stdAc::swingv_t::kOff, stdAc::swingh_t::kOff,
+void sendOnce() {
+    // Byte-identical to the command the AC responded to in the sweep.
+    irac.sendAc(decode_type_t::DAIKIN152, -1, /*power=*/true, stdAc::opmode_t::kCool,
+                /*degrees=*/30.0f, /*celsius=*/true, stdAc::fanspeed_t::kAuto,
+                stdAc::swingv_t::kOff, stdAc::swingh_t::kOff,
                 /*quiet=*/false, /*turbo=*/false, /*econo=*/false, /*light=*/false,
                 /*filter=*/false, /*clean=*/false, /*beep=*/false, /*sleep=*/-1,
                 /*clock=*/-1);
+    Serial.println("IR: sent DAIKIN152 ON COOL 30 (WiFi test)");
+}
+
+void drawScreen() {
+    M5.Display.fillScreen(TFT_BLACK);
+    M5.Display.setCursor(6, 8);
+    M5.Display.setTextSize(2);
+    M5.Display.printf("WiFi: %s\n", WiFi.status() == WL_CONNECTED ? "CONNECTED" : "off");
+    M5.Display.setTextSize(3);
+    M5.Display.setCursor(6, 44);
+    M5.Display.println("DAIKIN152");
+    M5.Display.setTextSize(2);
+    M5.Display.setCursor(6, 100);
+    M5.Display.print("ON COOL 30");
 }
 } // namespace
 
@@ -64,36 +49,33 @@ void setup() {
     M5.begin(cfg);
     Serial.begin(115200);
 
-    M5.Power.setExtOutput(true, m5::ext_none); // power the IR transmitter rail
+    M5.Power.setExtOutput(true, m5::ext_none);
     M5.Speaker.end();
     M5.Display.setRotation(1);
-    delay(400);
 
-    Serial.println("\n=== IR TX identify (Daikin variants) ===");
-    Serial.println("Point the Stick at the AC (front IR window). Button B = next variant,");
-    Serial.println("Button A = resend. Watch the AC: the name on screen when it beeps/");
-    Serial.println("turns on to 30C COOL is your protocol.");
+    // The variable under test: a live WiFi association.
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
+    uint32_t start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) delay(200);
+    Serial.printf("WiFi: %s\n", WiFi.status() == WL_CONNECTED ? "connected" : "NOT connected");
+
     drawScreen();
-    sendCurrent(); // send #1 immediately
+    sendOnce();
 }
 
 void loop() {
     M5.update();
-
-    // Button B advances to the next Daikin variant.
-    if (M5.BtnB.wasClicked()) {
-        idx = (idx + 1) % kNum;
-        drawScreen();
-        sendCurrent();
-        return;
-    }
-
-    // Auto-repeat the current variant ~2x/sec so a phone camera sees continuous
-    // flashing (emission test) and aiming at the AC is easy.
     static uint32_t last = 0;
+    static uint32_t lastDraw = 0;
+    if (M5.BtnA.wasClicked()) sendOnce();
     if (millis() - last > 450) {
         last = millis();
-        sendCurrent();
+        sendOnce();
+    }
+    if (millis() - lastDraw > 2000) {
+        lastDraw = millis();
+        drawScreen();
     }
     delay(10);
 }
