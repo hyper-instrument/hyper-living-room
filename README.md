@@ -1,6 +1,6 @@
 # home-assist — M5StickS3 smart-home hub
 
-![M5StickS3 main screen: indoor temperature/humidity, AC and plug status](docs/stick-display.png)
+![M5StickS3 main screen: indoor temperature/humidity, AC and plug status](docs/stick-display.jpg)
 
 A standalone hub (no Home Assistant server needed) running on an **M5Stack StickS3**:
 
