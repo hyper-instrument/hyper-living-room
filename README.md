@@ -1,5 +1,7 @@
 # home-assist — M5StickS3 smart-home hub
 
+![M5StickS3 main screen: indoor temperature/humidity, AC and plug status](docs/stick-display.png)
+
 A standalone hub (no Home Assistant server needed) running on an **M5Stack StickS3**:
 
 - Reads a **Xiaomi LYWSDCGQ** round temperature/humidity sensor via passive BLE scanning (unencrypted MiBeacon advertisements — no pairing or bind key needed).
