@@ -1,9 +1,10 @@
 #pragma once
 
-#if __has_include("secrets.h")
-#include "secrets.h"
-#else
-#error "Copy include/secrets.h.example to include/secrets.h and fill in your credentials"
+// Credentials (WIFI_SSID, WIFI_PASS, TAPO_IP, TAPO_USER, TAPO_PASS,
+// SENSOR_MAC, APP_HOSTNAME) are injected at build time from the gitignored
+// .env file by scripts/load_env.py. Copy .env.example to .env to configure.
+#ifndef WIFI_SSID
+#error "Credentials not defined. Copy .env.example to .env and fill in your values."
 #endif
 
 // Sensor reading considered stale after this long without a BLE update.

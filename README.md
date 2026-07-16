@@ -18,9 +18,9 @@ A standalone hub (no Home Assistant server needed) running on an **M5Stack Stick
 1. **Tapo app**: enable *Me → Third-Party Services / Third-Party Compatibility* (required for local KLAP control on current P110M firmware).
 2. **Router**: give the P110M a DHCP reservation / static IP.
 3. Wi-Fi must be **2.4 GHz** (the ESP32-S3 has no 5 GHz radio).
-4. Copy the config template and fill in your values:
+4. Copy the config template and fill in your values (`.env` is gitignored; it's injected into the firmware at build time):
    ```sh
-   cp include/secrets.h.example include/secrets.h
+   cp .env.example .env
    ```
 5. Build & flash ([PlatformIO](https://platformio.org/) required), with the StickS3 connected over USB-C:
    ```sh
@@ -85,7 +85,7 @@ The skill depends on the `m5stick` MCP server (above) being connected.
 ## Notes & caveats
 
 - **AC on a smart plug = hard power cycle.** Many air conditioners do *not* resume cooling when power returns — check that yours has an "auto-restart" feature, or set it accordingly. The StickS3 also has a built-in IR transmitter; sending real AC remote codes (temperature/mode control) would be a natural next step.
-- The Tapo account credentials in `secrets.h` are only used for the local KLAP handshake with the plug; nothing is sent to the cloud.
+- The Tapo account credentials in `.env` are only used for the local KLAP handshake with the plug; nothing is sent to the cloud.
 - Tapo firmware updates occasionally change the protocol. The vendored client (`lib/tapo_esp32/`, from [omegahiro/tapo-esp32](https://github.com/omegahiro/tapo-esp32)) implements KLAP, current as of mid-2026. The older "Passthrough" protocol is not supported.
 - The stick's 250 mAh battery is tiny — keep it on USB-C power for hub duty.
 

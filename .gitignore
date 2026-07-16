@@ -1,4 +1,4 @@
 .pio/
 .vscode/
-include/secrets.h
+.env
 .DS_Store
