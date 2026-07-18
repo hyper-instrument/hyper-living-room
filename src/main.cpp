@@ -39,6 +39,11 @@ void connectWifi() {
     } else {
         Serial.println("WIFI: not connected yet, will keep retrying in background");
     }
+
+    // Cap TX power: home RSSI is ~-35 dBm (huge margin), and lower TX peaks
+    // keep weak USB supplies from browning out the board (reboot loops when
+    // not powered from a computer port).
+    WiFi.setTxPower(WIFI_POWER_11dBm);
 }
 
 void serviceTapo() {
