@@ -96,11 +96,12 @@ void fillToolsList(JsonObject result) {
     JsonObject t2 = tools.add<JsonObject>();
     t2["name"] = "set_ac";
     t2["description"] =
-        "Control the Daikin air conditioner over IR (protocol DAIKIN152, like "
-        "its remote). Set any of: power on/off, mode, temperature, fan speed, "
-        "vertical swing. Only the fields you pass change. The Stick's IR LED is "
-        "weak: it needs a clear line of sight and short distance to the AC — if "
-        "the AC doesn't react (no beep), distance/aiming is the first suspect.";
+        "Control the Sharp AY-T22DG air conditioner over IR (replaying frames "
+        "captured from its B198JB remote). CURRENTLY ONLY power on/off works: "
+        "on = cool mode with the remote's memorized settings; temp/mode/fan/"
+        "swing are NOT yet supported and will be rejected. The Stick's IR LED "
+        "is weak: it needs a clear line of sight and short distance to the AC — "
+        "if the AC doesn't react (no beep), distance/aiming is the first suspect.";
     JsonObject s2 = t2["inputSchema"].to<JsonObject>();
     s2["type"] = "object";
     JsonObject p2 = s2["properties"].to<JsonObject>();
@@ -187,10 +188,12 @@ void handleToolCall(JsonVariant params, JsonObject result) {
         }
         if (!a["swing"].isNull()) { cmd.has_swing = true; cmd.swing = a["swing"].as<bool>(); }
 
-        if (!cmd.has_power && !cmd.has_temp && !cmd.has_mode && !cmd.has_fan &&
-            !cmd.has_swing) {
+        if (!cmd.has_power) {
             result["isError"] = true;
-            addTextContent(result, "Nothing to set. Pass at least one of: power, mode, temp, fan, swing.");
+            addTextContent(result,
+                "Only power on/off is supported for the Sharp AC right now "
+                "(other settings need their IR frames captured first). Pass "
+                "{\"power\": true|false}.");
             return;
         }
         g_state.requestAcCommand(cmd);

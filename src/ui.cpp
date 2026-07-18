@@ -186,6 +186,12 @@ void ui_next_screen() {
     g_screen = (g_screen + 1) % SCREEN_COUNT;
 }
 
+void ui_button_flash() {
+    M5.Display.invertDisplay(true);
+    delay(70);
+    M5.Display.invertDisplay(false);
+}
+
 void ui_draw(bool tapoReady) {
     g_canvas.fillSprite(COL_BG);
     drawTopBar(tapoReady);

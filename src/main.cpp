@@ -80,11 +80,11 @@ void setup() {
     g_state.begin();
     ui_init();
 
-    // The IR transmitter is on the external power rail; enable it. The speaker
-    // stays enabled for button feedback tones (M5's amp warning only concerns
-    // IR *receive*, which the main firmware doesn't use).
+    // The IR transmitter is on the external power rail; enable it.
+    // NB: no speaker use — M5Unified's ES8311 audio path hangs on this board
+    // with Arduino core 2.x (tone()/begin() block the loop). Button feedback
+    // is a display flash instead.
     M5.Power.setExtOutput(true, m5::ext_none);
-    M5.Speaker.setVolume(96);
     ir_ac_init();
 
     connectWifi();
@@ -102,16 +102,15 @@ void loop() {
     M5.update();
 
     if (M5.BtnA.wasClicked()) {
-        M5.Speaker.tone(2000, 60); // feedback beep
+        ui_button_flash();
         g_state.requestAcCommand(ir_ac_button_toggle());
     }
     if (M5.BtnA.wasHold()) { // long-press: IR camera test
-        M5.Speaker.tone(2000, 60);
-        M5.Speaker.tone(2600, 60);
+        ui_button_flash();
         ir_ac_blast_test();
     }
     if (M5.BtnB.wasClicked()) {
-        M5.Speaker.tone(1500, 40);
+        ui_button_flash();
         ui_next_screen();
     }
 
