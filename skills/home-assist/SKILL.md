@@ -1,7 +1,7 @@
 ---
 name: home-assist
 description: 查询室内温湿度、用红外遥控控制大金空调（开关/温度/模式/风速/扫风），以及控制 Tapo P110M 智能插座的市电。当用户问室内温度/湿度、房间冷热、空调状态，或让开/关空调、调温度、调模式风速（air conditioner / AC / 空调 / 冷房 / 暖房 / 温度 / 湿度 / temperature / humidity）时使用。
-version: 2.2.0
+version: 2.3.0
 platforms: [linux, macos, windows]
 metadata:
   hermes:
@@ -16,11 +16,17 @@ metadata:
 - 通过**红外**遥控真实的**大金空调**（型号 AJT22UNS-W，遥控器 ARC478A33，协议 **DAIKIN152**）——开关/温度/模式/风速/扫风；
 - 读取/控制一个 **Tapo P110M 智能插座**（通断电 + 电量统计）。**插座与空调是独立设备**，插座上插的不是空调。
 
-## 依赖
+## 连接方式（二选一，优先 1）
 
-需要名为 **`m5stick`** 的 MCP server 已连接：`http://m5stick.local/mcp`
-- Claude：`claude mcp list` → `m5stick ... ✔ Connected`
-- Hermes：`hermes mcp test m5stick` → `✓ Connected`
+1. **MCP 工具**：若当前环境已连接名为 `m5stick` 的 MCP server，直接调用其工具（下表）。
+2. **自带脚本（无需 MCP，可移植）**：运行本 skill 的 `scripts/ac.py`（纯 Python3 标准库）：
+   ```sh
+   python3 scripts/ac.py status        # 状态 JSON
+   python3 scripts/ac.py on            # 开空调（制冷 24°C + 扫风）
+   python3 scripts/ac.py off | temp 26 | mode cool | fan high | swing on | plug off
+   ```
+   端点解析顺序：`$HOME_ASSIST_URL` → `~/.config/home-assist/url` → `http://m5stick.local/mcp`（仅家里局域网）。
+   **换一台机器部署**：拷贝本 skill 目录 + 把控制端点 URL 写入 `~/.config/home-assist/url` 即可（URL 含访问密钥，不要提交进任何仓库）。
 
 ## 工具
 
