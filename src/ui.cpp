@@ -73,10 +73,12 @@ void drawMain() {
     g_canvas.drawString("温度", 10, 24);
     g_canvas.drawString("湿度", 150, 24);
 
+    // Show the last known reading even when stale (grayed via valCol) — the
+    // values drift slowly, and "--" reads as a fault. "--" only if never seen.
     g_canvas.setFont(&fonts::Font7); // 48px seven-segment digits
     g_canvas.setTextColor(valCol);
-    String t = (stale || isnan(s.tempC)) ? "--.-" : String(s.tempC, 1);
-    String h = (stale || isnan(s.humPct)) ? "--" : String((int)roundf(s.humPct));
+    String t = isnan(s.tempC) ? "--.-" : String(s.tempC, 1);
+    String h = isnan(s.humPct) ? "--" : String((int)roundf(s.humPct));
     int tw = g_canvas.textWidth(t);
     int hw = g_canvas.textWidth(h);
     g_canvas.drawString(t, 10, 42);

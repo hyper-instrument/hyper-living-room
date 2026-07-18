@@ -104,6 +104,12 @@ void loop() {
     ir_ac_service();
     wg_tunnel_service();
 
+    static uint32_t lastBleCheck = 0;
+    if (millis() - lastBleCheck >= 5000) {
+        lastBleCheck = millis();
+        ble_sensor_watchdog();
+    }
+
     if (millis() - g_lastDraw >= 1000) {
         g_lastDraw = millis();
         ui_draw(g_tapo.ready());

@@ -142,11 +142,23 @@ void ble_sensor_start() {
     scan->setScanCallbacks(&g_scanCallbacks, false);
     scan->setActiveScan(false);   // MiBeacon data is in the advertisement itself
     scan->setDuplicateFilter(false);
-    // Low duty cycle so BLE plays nice with Wi-Fi on the shared radio.
-    scan->setInterval(300);
-    scan->setWindow(60);
+    // 50% duty: with WiFi + WireGuard keepalives sharing the radio, the old
+    // 20% window missed advertisements for minutes at a stretch.
+    scan->setInterval(240);
+    scan->setWindow(120);
     scan->start(kScanDurationMs, false, true);
     Serial.println("BLE: passive scan started");
+}
+
+void ble_sensor_watchdog() {
+    // The onScanEnd restart can occasionally fail (radio busy); if scanning
+    // silently stopped and we're not intentionally paused, kick it.
+    if (g_scanPaused) return;
+    NimBLEScan* scan = NimBLEDevice::getScan();
+    if (scan && !scan->isScanning()) {
+        Serial.println("BLE: scan stalled, restarting");
+        scan->start(kScanDurationMs, false, true);
+    }
 }
 
 void ble_sensor_pause() {
