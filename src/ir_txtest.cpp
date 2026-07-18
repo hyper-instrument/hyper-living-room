@@ -1,46 +1,63 @@
-// Standalone IR bisect tool (env:irtxtest only — excluded from the main build).
-// Sends the EXACT command that made the AC respond (DAIKIN152, power ON, COOL,
-// 30C, fan auto, no swing) on auto-repeat — but WITH WiFi connected, to test
-// whether an active WiFi association breaks bit-banged IR on this board.
+// Standalone IR protocol-identification tool (env:irtxtest only).
+// Target: Sharp AY-T22DG (remote B198JB). Cycles ready-made Sharp encoders
+// from two independent libraries — the AC beeps for the right one.
 //
 //   pio run -e irtxtest -t upload
 //
-//   Auto-repeats every 450 ms. Button A = force resend.
-//   Screen shows WiFi state so the variable under test is visible.
+//   Auto-repeats every 500 ms. Button B = next candidate, A = force resend.
 
 #include <M5Unified.h>
-#include <WiFi.h>
 #include <IRremoteESP8266.h>
 #include <IRac.h>
-
-#include "app_config.h"
+#include <SharpHeatpumpIR.h>
+#include <IRSender.h>
 
 namespace {
 constexpr uint16_t kIrLed = 46;
-IRac irac(kIrLed);
+
+IRac g_irac(kIrLed);
+IRSenderESP32 g_hpSender(kIrLed, 0); // pin, ledc channel
+SharpHeatpumpIR g_hpSharp;
+
+void sendIrremote(sharp_ac_remote_model_t model) {
+    g_irac.sendAc(decode_type_t::SHARP_AC, (int16_t)model, true,
+                  stdAc::opmode_t::kCool, 25.0f, true, stdAc::fanspeed_t::kAuto,
+                  stdAc::swingv_t::kOff, stdAc::swingh_t::kOff,
+                  false, false, false, false, false, false, true, -1, -1);
+}
+
+struct Candidate {
+    const char* name;
+    void (*send)();
+};
+const Candidate kCandidates[] = {
+    {"HeatpumpIR", []() {
+         g_hpSharp.send(g_hpSender, POWER_ON, MODE_COOL, FAN_AUTO, 25, VDIR_AUTO, HDIR_AUTO);
+     }},
+    {"IRr A907", []() { sendIrremote(sharp_ac_remote_model_t::A907); }},
+    {"IRr A705", []() { sendIrremote(sharp_ac_remote_model_t::A705); }},
+    {"IRr A903", []() { sendIrremote(sharp_ac_remote_model_t::A903); }},
+};
+const size_t kNum = sizeof(kCandidates) / sizeof(kCandidates[0]);
+size_t idx = 0;
 
 void sendOnce() {
-    // Byte-identical to the command the AC responded to in the sweep.
-    irac.sendAc(decode_type_t::DAIKIN152, -1, /*power=*/true, stdAc::opmode_t::kCool,
-                /*degrees=*/30.0f, /*celsius=*/true, stdAc::fanspeed_t::kAuto,
-                stdAc::swingv_t::kOff, stdAc::swingh_t::kOff,
-                /*quiet=*/false, /*turbo=*/false, /*econo=*/false, /*light=*/false,
-                /*filter=*/false, /*clean=*/false, /*beep=*/false, /*sleep=*/-1,
-                /*clock=*/-1);
-    Serial.println("IR: sent DAIKIN152 ON COOL 30 (WiFi test)");
+    kCandidates[idx].send();
+    Serial.printf("[%u/%u] %s -> ON COOL 25\n", (unsigned)(idx + 1), (unsigned)kNum,
+                  kCandidates[idx].name);
 }
 
 void drawScreen() {
     M5.Display.fillScreen(TFT_BLACK);
     M5.Display.setCursor(6, 8);
     M5.Display.setTextSize(2);
-    M5.Display.printf("WiFi: %s\n", WiFi.status() == WL_CONNECTED ? "CONNECTED" : "off");
+    M5.Display.printf("%u/%u\n", (unsigned)(idx + 1), (unsigned)kNum);
     M5.Display.setTextSize(3);
     M5.Display.setCursor(6, 44);
-    M5.Display.println("DAIKIN152");
+    M5.Display.println(kCandidates[idx].name);
     M5.Display.setTextSize(2);
     M5.Display.setCursor(6, 100);
-    M5.Display.print("ON COOL 30");
+    M5.Display.print("ON COOL 25");
 }
 } // namespace
 
@@ -52,13 +69,7 @@ void setup() {
     M5.Power.setExtOutput(true, m5::ext_none);
     M5.Speaker.end();
     M5.Display.setRotation(1);
-
-    // The variable under test: a live WiFi association.
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
-    uint32_t start = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) delay(200);
-    Serial.printf("WiFi: %s\n", WiFi.status() == WL_CONNECTED ? "connected" : "NOT connected");
+    delay(300);
 
     drawScreen();
     sendOnce();
@@ -67,15 +78,16 @@ void setup() {
 void loop() {
     M5.update();
     static uint32_t last = 0;
-    static uint32_t lastDraw = 0;
+    if (M5.BtnB.wasClicked()) {
+        idx = (idx + 1) % kNum;
+        drawScreen();
+        sendOnce();
+        return;
+    }
     if (M5.BtnA.wasClicked()) sendOnce();
-    if (millis() - last > 450) {
+    if (millis() - last > 500) {
         last = millis();
         sendOnce();
-    }
-    if (millis() - lastDraw > 2000) {
-        lastDraw = millis();
-        drawScreen();
     }
     delay(10);
 }

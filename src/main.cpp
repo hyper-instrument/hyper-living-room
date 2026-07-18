@@ -81,10 +81,10 @@ void setup() {
     ui_init();
 
     // The IR transmitter is on the external power rail; enable it. The speaker
-    // amp is disabled: M5 notes it interferes with the IR circuitry, and the
-    // firmware that verifiably reached the AC had it off.
+    // stays enabled for button feedback tones (M5's amp warning only concerns
+    // IR *receive*, which the main firmware doesn't use).
     M5.Power.setExtOutput(true, m5::ext_none);
-    M5.Speaker.end();
+    M5.Speaker.setVolume(96);
     ir_ac_init();
 
     connectWifi();
@@ -101,9 +101,19 @@ void setup() {
 void loop() {
     M5.update();
 
-    if (M5.BtnA.wasClicked()) g_state.requestAcCommand(ir_ac_button_toggle());
-    if (M5.BtnA.wasHold()) ir_ac_blast_test(); // long-press: IR camera test
-    if (M5.BtnB.wasClicked()) ui_next_screen();
+    if (M5.BtnA.wasClicked()) {
+        M5.Speaker.tone(2000, 60); // feedback beep
+        g_state.requestAcCommand(ir_ac_button_toggle());
+    }
+    if (M5.BtnA.wasHold()) { // long-press: IR camera test
+        M5.Speaker.tone(2000, 60);
+        M5.Speaker.tone(2600, 60);
+        ir_ac_blast_test();
+    }
+    if (M5.BtnB.wasClicked()) {
+        M5.Speaker.tone(1500, 40);
+        ui_next_screen();
+    }
 
     serviceTapo();
     ir_ac_service();

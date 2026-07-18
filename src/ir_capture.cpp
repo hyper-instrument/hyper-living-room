@@ -1,24 +1,22 @@
-// Standalone IR-capture tool (env:ircapture only — excluded from the main build).
-// Point an IR remote at the StickS3 receiver and press buttons; this prints the
-// decoded protocol, bit count, raw state bytes, and (for A/C remotes) the
-// human-readable settings. Used to identify the Daikin ARC478A33 protocol.
+// Raw IR capture via the RMT peripheral (env:ircapture only).
+// The StickS3 IR receiver (GPIO 42) cannot be sampled by IRremoteESP8266's
+// GPIO-interrupt receiver (floods with noise on this board — see README); the
+// RMT peripheral is required. This records demodulated mark/space durations
+// (1 us ticks) and prints them as a rawData array for offline analysis with
+// IRremoteESP8266's tools/auto_analyse_raw_data.py.
 //
 //   pio run -e ircapture -t upload && pio device monitor
+//   Point the remote at the Stick's IR window and press buttons.
 
 #include <M5Unified.h>
-#include <IRrecv.h>
-#include <IRremoteESP8266.h>
-#include <IRutils.h>
-#include <IRac.h>
+#include <driver/rmt.h>
 
 namespace {
-constexpr uint16_t kRecvPin = 42;          // StickS3 IR receiver
-constexpr uint16_t kCaptureBufferSize = 1024; // Daikin messages are long
-constexpr uint8_t kTimeoutMs = 50;         // gap that marks end of a message
-constexpr uint16_t kMinUnknownSize = 12;
+constexpr gpio_num_t kRxPin = GPIO_NUM_42;
+constexpr rmt_channel_t kCh = RMT_CHANNEL_4; // ESP32-S3: RX channels are 4..7
 
-IRrecv irrecv(kRecvPin, kCaptureBufferSize, kTimeoutMs, true);
-decode_results results;
+RingbufHandle_t g_rb = nullptr;
+uint32_t g_frameNo = 0;
 } // namespace
 
 void setup() {
@@ -26,52 +24,60 @@ void setup() {
     M5.begin(cfg);
     Serial.begin(115200);
 
-    // The IR block is on the external power rail; enable it. And the speaker amp
-    // interferes with IR RX, so shut it down.
+    // Per M5 docs: IR needs the ext power rail; the speaker amp disturbs RX.
     M5.Power.setExtOutput(true, m5::ext_none);
     M5.Speaker.end();
-
-    irrecv.setUnknownThreshold(kMinUnknownSize);
-    irrecv.enableIRIn();
 
     M5.Display.setRotation(1);
     M5.Display.setTextSize(2);
     M5.Display.fillScreen(TFT_BLACK);
     M5.Display.setCursor(4, 4);
-    M5.Display.print("IR capture\naim remote");
+    M5.Display.print("IR RAW REC\naim remote\npress keys");
 
-    Serial.println("\n=== IR CAPTURE READY (pin 42) ===");
-    Serial.println("Point the Daikin ARC478A33 remote at the Stick and press POWER.");
+    rmt_config_t rcfg = RMT_DEFAULT_CONFIG_RX(kRxPin, kCh);
+    rcfg.clk_div = 80;                       // 80 MHz / 80 -> 1 us per tick
+    rcfg.mem_block_num = 4;                  // 4x48 items: fits ~190 marks/spaces
+    rcfg.rx_config.idle_threshold = 12000;   // >12 ms silence = end of frame
+    rcfg.rx_config.filter_en = true;
+    rcfg.rx_config.filter_ticks_thresh = 100; // drop <100 us glitches
+    ESP_ERROR_CHECK(rmt_config(&rcfg));
+    ESP_ERROR_CHECK(rmt_driver_install(kCh, 8192, 0));
+    rmt_get_ringbuf_handle(kCh, &g_rb);
+    rmt_rx_start(kCh, true);
+
+    Serial.println("\n=== IR RAW CAPTURE READY (RMT, pin 42) ===");
+    Serial.println("Press a button on the remote. Each frame prints as rawData.");
 }
 
 void loop() {
-    if (irrecv.decode(&results)) {
-        Serial.println("\n----------------------------------------");
-        Serial.print("Protocol : ");
-        Serial.println(typeToString(results.decode_type, results.repeat));
-        Serial.print("Bits     : ");
-        Serial.println(results.bits);
+    M5.update();
+    size_t len = 0;
+    rmt_item32_t* items = (rmt_item32_t*)xRingbufferReceive(g_rb, &len, pdMS_TO_TICKS(200));
+    if (!items) return;
 
-        if (hasACState(results.decode_type)) {
-            Serial.print("State    : ");
-            Serial.println(resultToHexidecimal(&results));
-            String ac = IRAcUtils::resultAcToString(&results);
-            if (ac.length()) {
-                Serial.println("Settings :");
-                Serial.println(ac);
+    size_t n = len / sizeof(rmt_item32_t);
+    if (n >= 8) { // ignore stray blips
+        g_frameNo++;
+        // Durations alternate mark/space starting with the first item's
+        // duration0. Zero durations mark the end-of-frame entry — skip them.
+        Serial.printf("\n--- frame %u: %u items ---\n", g_frameNo, (unsigned)n);
+        Serial.printf("uint16_t rawData%u[] = {", g_frameNo);
+        bool first = true;
+        for (size_t i = 0; i < n; i++) {
+            if (items[i].duration0) {
+                Serial.printf("%s%u", first ? "" : ", ", items[i].duration0);
+                first = false;
             }
-        } else {
-            Serial.print("Value    : 0x");
-            Serial.println((uint64_t)results.value, HEX);
+            if (items[i].duration1) {
+                Serial.printf(", %u", items[i].duration1);
+            }
         }
+        Serial.println("};");
 
         M5.Display.fillScreen(TFT_BLACK);
         M5.Display.setCursor(4, 4);
-        M5.Display.printf("%s\n%d bits",
-                          typeToString(results.decode_type, results.repeat).c_str(),
-                          results.bits);
-
-        yield();
+        M5.Display.setTextSize(2);
+        M5.Display.printf("frame #%u\n%u items\ncaptured", g_frameNo, (unsigned)n);
     }
-    M5.update();
+    vRingbufferReturnItem(g_rb, items);
 }
