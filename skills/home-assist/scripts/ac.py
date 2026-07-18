@@ -6,8 +6,9 @@ Python 3 stdlib only.
 
 Endpoint resolution order:
   1. $HOME_ASSIST_URL
-  2. ~/.config/home-assist/url  (first line)
-  3. http://m5stick.local/mcp   (home LAN fallback)
+  2. url.txt next to this script   (for packaged/uploaded skill bundles)
+  3. ~/.config/home-assist/url     (first line)
+  4. http://m5stick.local/mcp      (home LAN fallback)
 
 usage:
   ac.py status              # 温湿度 + 空调/插座状态 (JSON)
@@ -30,11 +31,14 @@ def endpoint() -> str:
     url = os.environ.get("HOME_ASSIST_URL", "").strip()
     if url:
         return url
-    cfg = pathlib.Path.home() / ".config" / "home-assist" / "url"
-    if cfg.is_file():
-        first = cfg.read_text().strip().splitlines()
-        if first:
-            return first[0].strip()
+    for cfg in (
+        pathlib.Path(__file__).resolve().parent / "url.txt",
+        pathlib.Path.home() / ".config" / "home-assist" / "url",
+    ):
+        if cfg.is_file():
+            lines = cfg.read_text().strip().splitlines()
+            if lines:
+                return lines[0].strip()
     return "http://m5stick.local/mcp"
 
 

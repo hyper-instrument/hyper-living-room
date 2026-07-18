@@ -2,3 +2,5 @@
 .vscode/
 .env
 .DS_Store
+# private endpoint (contains the access secret) for packaged skill bundles
+skills/home-assist/scripts/url.txt
